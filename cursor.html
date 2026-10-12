@@ -1,0 +1,2630 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyCursor — Interactive Python Course</title>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  :root {
+    --bg-0: #0a0a0a;
+    --bg-1: #111111;
+    --bg-2: #161616;
+    --bg-3: #1c1c1c;
+    --bg-4: #242424;
+    --border: #262626;
+    --border-hover: #333;
+    --text-0: #ededed;
+    --text-1: #a1a1a1;
+    --text-2: #6e6e6e;
+    --accent: #b589ff;
+    --accent-2: #8b5cf6;
+    --accent-glow: rgba(181, 137, 255, 0.15);
+    --success: #4ade80;
+    --error: #f87171;
+    --warning: #fbbf24;
+    --info: #60a5fa;
+    --kw: #c084fc;
+    --str: #86efac;
+    --num: #fbbf24;
+    --com: #6e7681;
+    --fn: #60a5fa;
+    --cls: #f0abfc;
+    --op: #f472b6;
+  }
+  
+  html, body {
+    height: 100%;
+    background: var(--bg-0);
+    color: var(--text-0);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 13px;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  /* ===== LOADING SCREEN ===== */
+  #boot {
+    position: fixed; inset: 0;
+    background: var(--bg-0);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 1000;
+    transition: opacity 0.5s;
+  }
+  #boot.hidden { opacity: 0; pointer-events: none; }
+  .boot-logo {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 48px; font-weight: 600;
+    background: linear-gradient(135deg, #fff 0%, #b589ff 50%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 24px;
+    letter-spacing: -2px;
+  }
+  .boot-sub { color: var(--text-2); margin-bottom: 32px; font-size: 14px; }
+  .boot-bar {
+    width: 280px; height: 3px;
+    background: var(--bg-3); border-radius: 2px; overflow: hidden;
+  }
+  .boot-bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width 0.3s;
+  }
+  .boot-log {
+    margin-top: 16px; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-2);
+  }
+  
+  /* ===== LAYOUT ===== */
+  .app { display: flex; height: 100vh; flex-direction: column; }
+  
+  .titlebar {
+    height: 38px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .titlebar-dots { display: flex; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot-r { background: #ff5f57; }
+  .dot-y { background: #febc2e; }
+  .dot-g { background: #28c840; }
+  .titlebar-title {
+    flex: 1; text-align: center;
+    color: var(--text-2); font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .titlebar-actions { display: flex; gap: 4px; }
+  .tb-btn {
+    background: transparent; border: none; color: var(--text-1);
+    padding: 4px 8px; border-radius: 4px; cursor: pointer;
+    font-size: 11px; font-family: inherit;
+    display: flex; align-items: center; gap: 4px;
+    transition: all 0.15s;
+  }
+  .tb-btn:hover { background: var(--bg-3); color: var(--text-0); }
+  .tb-btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+  }
+  .tb-btn.primary:hover { filter: brightness(1.1); }
+  
+  .workspace { display: flex; flex: 1; overflow: hidden; }
+  
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 260px;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    flex-shrink: 0;
+  }
+  .sidebar-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sidebar-title {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-1);
+  }
+  .sidebar-section {
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-label {
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-2);
+    padding: 6px 8px;
+  }
+  .lesson-list {
+    flex: 1; overflow-y: auto;
+    padding: 4px 8px 8px;
+  }
+  .lesson-item {
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-1);
+    font-size: 12px;
+    transition: all 0.15s;
+    margin-bottom: 2px;
+    position: relative;
+  }
+  .lesson-item:hover { background: var(--bg-3); color: var(--text-0); }
+  .lesson-item.active {
+    background: var(--accent-glow);
+    color: var(--text-0);
+  }
+  .lesson-item.active::before {
+    content: ''; position: absolute;
+    left: 0; top: 50%; transform: translateY(-50%);
+    width: 2px; height: 14px;
+    background: var(--accent); border-radius: 2px;
+  }
+  .lesson-icon {
+    width: 16px; height: 16px;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 600;
+    flex-shrink: 0;
+    background: var(--bg-3);
+    color: var(--text-2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .lesson-item.done .lesson-icon {
+    background: var(--success);
+    color: var(--bg-0);
+  }
+  .lesson-item.active .lesson-icon {
+    background: var(--accent);
+    color: var(--bg-0);
+  }
+  .lesson-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  
+  /* ===== MAIN AREA ===== */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-0); }
+  
+  .tabs {
+    height: 36px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: flex-end;
+    padding: 0 8px;
+    gap: 2px;
+    overflow-x: auto;
+    flex-shrink: 0;
+  }
+  .tab {
+    height: 32px;
+    padding: 0 12px;
+    display: flex; align-items: center; gap: 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    color: var(--text-2);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text-1); }
+  .tab.active {
+    background: var(--bg-0);
+    color: var(--text-0);
+    border-color: var(--border);
+  }
+  .tab-icon {
+    width: 14px; height: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+  }
+  .tab-close {
+    opacity: 0;
+    width: 14px; height: 14px;
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1;
+    transition: all 0.15s;
+  }
+  .tab:hover .tab-close { opacity: 0.5; }
+  .tab-close:hover { opacity: 1 !important; background: var(--bg-3); }
+  
+  .editor-area {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+  
+  /* ===== EDITOR ===== */
+  .editor-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .editor-wrap {
+    flex: 1;
+    display: flex;
+    overflow: auto;
+    background: var(--bg-0);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .gutter {
+    padding: 12px 12px 12px 16px;
+    text-align: right;
+    color: var(--text-2);
+    user-select: none;
+    background: var(--bg-0);
+    min-width: 48px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .gutter-line { height: 20.8px; }
+  .gutter-line.active { color: var(--text-0); }
+  
+  .editor-container {
+    position: relative;
+    flex: 1;
+    padding: 12px 16px;
+    min-width: 0;
+  }
+  .editor-highlight {
+    position: absolute;
+    inset: 0;
+    padding: 12px 16px;
+    white-space: pre;
+    pointer-events: none;
+    color: var(--text-0);
+    overflow: hidden;
+  }
+  .editor-textarea {
+    position: relative;
+    width: 100%;
+    min-height: 100%;
+    background: transparent;
+    color: transparent;
+    caret-color: var(--text-0);
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre;
+    overflow: hidden;
+    padding: 0;
+    z-index: 2;
+    tab-size: 4;
+  }
+  .editor-textarea::selection { background: rgba(181, 137, 255, 0.25); }
+  
+  /* Syntax highlighting tokens */
+  .tok-kw { color: var(--kw); font-weight: 500; }
+  .tok-str { color: var(--str); }
+  .tok-num { color: var(--num); }
+  .tok-com { color: var(--com); font-style: italic; }
+  .tok-fn { color: var(--fn); }
+  .tok-cls { color: var(--cls); }
+  .tok-op { color: var(--op); }
+  .tok-bi { color: #f59e0b; }
+  .tok-dec { color: #fbbf24; }
+  
+  /* ===== RESIZER ===== */
+  .resizer {
+    width: 4px;
+    background: var(--border);
+    cursor: col-resize;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+  .resizer:hover, .resizer.active { background: var(--accent); }
+  
+  /* ===== RIGHT PANEL (AI / LESSON) ===== */
+  .right-panel {
+    width: 420px;
+    background: var(--bg-1);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    overflow: hidden;
+  }
+  .panel-tabs {
+    height: 36px;
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-1);
+    flex-shrink: 0;
+  }
+  .panel-tab {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.15s;
+    border-bottom: 2px solid transparent;
+  }
+  .panel-tab:hover { color: var(--text-1); }
+  .panel-tab.active {
+    color: var(--text-0);
+    border-bottom-color: var(--accent);
+  }
+  .panel-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .panel-content::-webkit-scrollbar { width: 8px; }
+  .panel-content::-webkit-scrollbar-track { background: transparent; }
+  .panel-content::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
+  
+  .lesson-header {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .lesson-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .lesson-h {
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--text-0);
+    margin-bottom: 6px;
+    letter-spacing: -0.3px;
+  }
+  .lesson-meta {
+    color: var(--text-2);
+    font-size: 11px;
+    display: flex; gap: 12px;
+  }
+  
+  .lesson-body h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-0);
+    margin: 20px 0 10px;
+  }
+  .lesson-body p {
+    color: var(--text-1);
+    line-height: 1.7;
+    margin-bottom: 12px;
+    font-size: 13px;
+  }
+  .lesson-body ul, .lesson-body ol {
+    color: var(--text-1);
+    margin: 0 0 12px 20px;
+    line-height: 1.7;
+  }
+  .lesson-body li { margin-bottom: 4px; }
+  .lesson-body code {
+    background: var(--bg-3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .lesson-body pre {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin: 12px 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .lesson-body pre code {
+    background: transparent;
+    padding: 0;
+    color: var(--text-0);
+  }
+  .callout {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px;
+    border-radius: 6px;
+    margin: 14px 0;
+    font-size: 12px;
+    color: var(--text-1);
+    line-height: 1.6;
+  }
+  .callout strong { color: var(--accent); }
+  .callout.warn { border-left-color: var(--warning); }
+  .callout.warn strong { color: var(--warning); }
+  
+  .task-list {
+    margin: 16px 0;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .task-title {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-2);
+    margin-bottom: 10px;
+  }
+  .task {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 0;
+    color: var(--text-1);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .task-check {
+    width: 14px; height: 14px;
+    border: 1.5px solid var(--border-hover);
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  .task.done .task-check {
+    background: var(--success);
+    border-color: var(--success);
+  }
+  .task.done .task-check::after {
+    content: '✓';
+    color: var(--bg-0);
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .task.done { color: var(--text-2); text-decoration: line-through; }
+  
+  /* ===== AI CHAT ===== */
+  .ai-chat {
+    display: none;
+    flex-direction: column;
+    height: 100%;
+  }
+  .ai-chat.active { display: flex; }
+  .ai-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .ai-msg {
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.6;
+    max-width: 100%;
+    word-wrap: break-word;
+  }
+  .ai-msg.user {
+    background: var(--bg-3);
+    color: var(--text-0);
+    align-self: flex-end;
+    max-width: 85%;
+  }
+  .ai-msg.ai {
+    background: linear-gradient(135deg, rgba(181, 137, 255, 0.08), rgba(139, 92, 246, 0.05));
+    border: 1px solid rgba(181, 137, 255, 0.2);
+    color: var(--text-0);
+  }
+  .ai-msg.ai strong { color: var(--accent); }
+  .ai-msg pre {
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 8px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    overflow-x: auto;
+  }
+  .ai-msg code {
+    background: var(--bg-0);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .ai-input-wrap {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-1);
+  }
+  .ai-input {
+    width: 100%;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text-0);
+    font-family: inherit;
+    font-size: 12px;
+    resize: none;
+    outline: none;
+    min-height: 60px;
+    transition: border-color 0.15s;
+  }
+  .ai-input:focus { border-color: var(--accent); }
+  .ai-input-hint {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 6px;
+    font-size: 10px;
+    color: var(--text-2);
+  }
+  .kbd {
+    background: var(--bg-3);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+  }
+  
+  /* ===== TERMINAL ===== */
+  .terminal {
+    height: 200px;
+    background: var(--bg-1);
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+  .terminal-header {
+    height: 32px;
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .term-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    font-size: 11px;
+    font-family: inherit;
+    cursor: pointer;
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .term-tab.active { color: var(--text-0); border-bottom-color: var(--accent); }
+  .term-tab .badge {
+    background: var(--bg-3);
+    color: var(--text-2);
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .term-actions { margin-left: auto; display: flex; gap: 4px; }
+  .term-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    background: var(--bg-0);
+  }
+  .term-line { white-space: pre-wrap; word-break: break-word; }
+  .term-line.out { color: var(--text-0); }
+  .term-line.err { color: var(--error); }
+  .term-line.ok { color: var(--success); }
+  .term-line.info { color: var(--info); }
+  .term-line.dim { color: var(--text-2); }
+  .term-prompt {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-2);
+  }
+  .term-prompt .chev { color: var(--success); }
+  
+  /* ===== COMMAND PALETTE ===== */
+  .cmd-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 15vh;
+    z-index: 500;
+    animation: fadeIn 0.15s;
+  }
+  .cmd-overlay.active { display: flex; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .cmd-palette {
+    width: 560px;
+    max-width: 90vw;
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(181, 137, 255, 0.1);
+    animation: slideDown 0.2s;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .cmd-input-wrap {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .cmd-icon {
+    width: 20px; height: 20px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .cmd-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-0);
+    font-family: inherit;
+    font-size: 14px;
+  }
+  .cmd-input::placeholder { color: var(--text-2); }
+  .cmd-list {
+    max-height: 360px;
+    overflow-y: auto;
+    padding: 6px;
+  }
+  .cmd-item {
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text-1);
+    font-size: 13px;
+    transition: all 0.1s;
+  }
+  .cmd-item:hover, .cmd-item.selected {
+    background: var(--accent-glow);
+    color: var(--text-0);
+  }
+  .cmd-item-icon {
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+  .cmd-item.selected .cmd-item-icon { color: var(--accent); }
+  .cmd-item-label { flex: 1; }
+  .cmd-item-hint {
+    font-size: 11px;
+    color: var(--text-2);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .cmd-footer {
+    padding: 8px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 16px;
+    font-size: 11px;
+    color: var(--text-2);
+  }
+  
+  /* ===== TOAST ===== */
+  .toast-wrap {
+    position: fixed;
+    bottom: 20px; right: 20px;
+    display: flex; flex-direction: column; gap: 8px;
+    z-index: 600;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    border-radius: 6px;
+    color: var(--text-0);
+    font-size: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    animation: toastIn 0.2s;
+    pointer-events: auto;
+    max-width: 320px;
+  }
+  .toast.success { border-left-color: var(--success); }
+  .toast.error { border-left-color: var(--error); }
+  .toast.warn { border-left-color: var(--warning); }
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  
+  /* ===== STATUS BAR ===== */
+  .statusbar {
+    height: 22px;
+    background: var(--bg-1);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center;
+    padding: 0 12px;
+    font-size: 11px;
+    color: var(--text-2);
+    gap: 16px;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .status-item { display: flex; align-items: center; gap: 4px; }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--success);
+  }
+  .status-dot.loading {
+    background: var(--warning);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .status-right { margin-left: auto; display: flex; gap: 16px; }
+  
+  /* ===== SCROLLBARS ===== */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 5px; border: 2px solid var(--bg-0); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--bg-4); }
+  
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1100px) {
+    .sidebar { width: 220px; }
+    .right-panel { width: 360px; }
+  }
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .right-panel { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- BOOT SCREEN -->
+<div id="boot">
+  <div class="boot-logo">pycursor</div>
+  <div class="boot-sub">Interactive Python Environment</div>
+  <div class="boot-bar"><div class="boot-bar-fill" id="bootFill"></div></div>
+  <div class="boot-log" id="bootLog">Initializing...</div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <!-- TITLEBAR -->
+  <div class="titlebar">
+    <div class="titlebar-dots">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+    </div>
+    <div class="titlebar-title" id="titlePath">pycursor / lessons / 01_hello.py</div>
+    <div class="titlebar-actions">
+      <button class="tb-btn" onclick="openCmd()" title="Command Palette (⌘K)">⌘K</button>
+      <button class="tb-btn" onclick="toggleAI()" title="AI Assistant (⌘I)">✨ AI</button>
+      <button class="tb-btn primary" onclick="runCode()" title="Run (⌘Enter)">▶ Run</button>
+    </div>
+  </div>
+
+  <div class="workspace">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">Explorer</div>
+        <div style="color: var(--text-2); font-size: 11px;" id="progressLabel">0/15</div>
+      </div>
+      <div class="sidebar-section">
+        <div class="section-label">Python Course</div>
+      </div>
+      <div class="lesson-list" id="lessonList"></div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="tabs" id="tabs"></div>
+      
+      <div class="editor-area">
+        <div class="editor-pane">
+          <div class="editor-wrap">
+            <div class="gutter" id="gutter"></div>
+            <div class="editor-container">
+              <div class="editor-highlight" id="highlight"></div>
+              <textarea class="editor-textarea" id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            </div>
+          </div>
+        </div>
+        
+        <div class="resizer" id="resizer"></div>
+        
+        <!-- RIGHT PANEL -->
+        <div class="right-panel" id="rightPanel">
+          <div class="panel-tabs">
+            <button class="panel-tab active" data-panel="lesson">📖 Lesson</button>
+            <button class="panel-tab" data-panel="ai">✨ AI Chat</button>
+          </div>
+          
+          <!-- LESSON PANEL -->
+          <div class="panel-content" id="lessonPanel">
+            <div id="lessonContent"></div>
+          </div>
+          
+          <!-- AI PANEL -->
+          <div class="ai-chat" id="aiPanel">
+            <div class="ai-messages" id="aiMessages">
+              <div class="ai-msg ai">
+                <strong>PyCursor AI</strong><br>
+                Привет! Я твой AI-ассистент по Python. Задавай вопросы, проси объяснить концепции или помочь с кодом.
+              </div>
+            </div>
+            <div class="ai-input-wrap">
+              <textarea class="ai-input" id="aiInput" placeholder="Спроси что-нибудь о Python..."></textarea>
+              <div class="ai-input-hint">
+                <span>AI может ошибаться. Проверяй важную информацию.</span>
+                <span><span class="kbd">Enter</span> отправить</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TERMINAL -->
+      <div class="terminal">
+        <div class="terminal-header">
+          <button class="term-tab active">
+            <span>⬢</span> Terminal
+            <span class="badge" id="termBadge">output</span>
+          </button>
+          <button class="term-tab" onclick="clearTerminal()">
+            <span>🗑</span> Clear
+          </button>
+          <div class="term-actions">
+            <button class="term-tab" onclick="runCode()">▶ Run</button>
+          </div>
+        </div>
+        <div class="term-body" id="termBody">
+          <div class="term-line dim">Python 3.11 (Pyodide) — ready</div>
+          <div class="term-prompt"><span class="chev">❯</span> <span>waiting for input...</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="statusbar">
+    <div class="status-item">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+    <div class="status-item">⎇ main</div>
+    <div class="status-item" id="statusLesson">Lesson 1</div>
+    <div class="status-right">
+      <div class="status-item">UTF-8</div>
+      <div class="status-item">Python</div>
+      <div class="status-item" id="statusCursor">Ln 1, Col 1</div>
+    </div>
+  </div>
+</div>
+
+<!-- COMMAND PALETTE -->
+<div class="cmd-overlay" id="cmdOverlay">
+  <div class="cmd-palette">
+    <div class="cmd-input-wrap">
+      <svg class="cmd-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input class="cmd-input" id="cmdInput" placeholder="Type a command or search...">
+    </div>
+    <div class="cmd-list" id="cmdList"></div>
+    <div class="cmd-footer">
+      <span><span class="kbd">↑↓</span> navigate</span>
+      <span><span class="kbd">↵</span> select</span>
+      <span><span class="kbd">esc</span> close</span>
+    </div>
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ============================================================
+// COURSE DATA
+// ============================================================
+const LESSONS = [
+  {
+    id: '01_hello',
+    title: 'Hello, Python',
+    difficulty: 'Beginner',
+    time: '5 min',
+    objectives: ['Написать первую программу', 'Понять функцию print()'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 01 · Beginner</div>
+        <h2 class="lesson-h">Hello, Python</h2>
+        <div class="lesson-meta">
+          <span>⏱ 5 min</span>
+          <span>🎯 2 objectives</span>
+        </div>
+      </div>
+      <div class="lesson-body">
+        <p>Добро пожаловать в <strong>PyCursor</strong> — интерактивную среду для изучения Python. Здесь ты пишешь код, видишь результат и получаешь помощь от AI.</p>
+        
+        <h3>Твоя первая программа</h3>
+        <p>Традиционно изучение любого языка начинается с программы <code>Hello, World!</code>. В Python это делается одной строкой:</p>
+        <pre><code>print("Hello, World!")</code></pre>
+        
+        <p>Функция <code>print()</code> выводит текст на экран. Текст (строка) заключается в кавычки — двойные <code>"..."</code> или одинарные <code>'...'</code>.</p>
+        
+        <div class="callout">
+          <strong>💡 Совет:</strong> Попробуй изменить текст в кавычках и запусти код кнопкой <span class="kbd">▶ Run</span> или сочетанием <span class="kbd">⌘ Enter</span>.
+        </div>
+        
+        <h3>Несколько вызовов print</h3>
+        <pre><code>print("Меня зовут Python")
+print("Мне 30+ лет")
+print("Я люблю код")</code></pre>
+        
+        <p>Каждый <code>print()</code> выводит текст с новой строки.</p>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Вывести своё имя с помощью print()</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Вывести три разные строки</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Использовать одинарные и двойные кавычки</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Твоя первая программа на Python 🐍
+
+print("Hello, World!")
+
+# Попробуй изменить текст выше
+# или написать свои строки ниже:
+
+
+`
+  },
+  {
+    id: '02_variables',
+    title: 'Переменные',
+    difficulty: 'Beginner',
+    time: '8 min',
+    objectives: ['Создавать переменные', 'Использовать f-строки'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 02 · Beginner</div>
+        <h2 class="lesson-h">Переменные</h2>
+        <div class="lesson-meta"><span>⏱ 8 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Переменная — это <strong>именованный контейнер</strong> для данных. В Python не нужно указывать тип — он определяется автоматически.</p>
+        
+        <h3>Создание переменных</h3>
+        <pre><code>name = "Алиса"
+age = 25
+height = 1.68
+is_student = True</code></pre>
+        
+        <p>Имя переменной может содержать буквы, цифры и <code>_</code>, но не может начинаться с цифры.</p>
+        
+        <h3>f-строки</h3>
+        <p>Самый удобный способ вставлять переменные в строку:</p>
+        <pre><code>name = "Борис"
+age = 30
+print(f"Меня зовут {name}, мне {age} лет")</code></pre>
+        
+        <div class="callout">
+          <strong>💡 Важно:</strong> Перед <code>{</code> ставится буква <code>f</code> — это говорит Python, что внутри есть подстановки.
+        </div>
+        
+        <h3>Переприсваивание</h3>
+        <pre><code>x = 10
+x = 20      # теперь x равен 20
+x = x + 5   # x стал 25</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Создать переменные name, age, city</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Вывести их через f-строку</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Изменить значение одной переменной и вывести снова</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Создай свои переменные
+
+name = "Твоё имя"
+age = 20
+city = "Твой город"
+
+# Выведи их через f-строку
+print(f"Меня зовут {name}")
+
+
+# Попробуй изменить age и вывести снова
+
+`
+  },
+  {
+    id: '03_types',
+    title: 'Типы данных',
+    difficulty: 'Beginner',
+    time: '10 min',
+    objectives: ['Различать типы данных', 'Преобразовывать типы'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 03 · Beginner</div>
+        <h2 class="lesson-h">Типы данных</h2>
+        <div class="lesson-meta"><span>⏱ 10 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>В Python есть несколько основных типов данных:</p>
+        
+        <h3>Основные типы</h3>
+        <pre><code>integer = 42          # int — целое число
+pi = 3.14159          # float — дробное
+text = "Python"       # str — строка
+flag = True           # bool — логический
+nothing = None        # NoneType — ничего</code></pre>
+        
+        <h3>Проверка типа</h3>
+        <pre><code>x = 42
+print(type(x))  # &lt;class 'int'&gt;</code></pre>
+        
+        <h3>Преобразование типов</h3>
+        <pre><code>num_str = "42"
+num_int = int(num_str)    # строка → число
+num_float = float(num_str)  # строка → дробное
+back_str = str(num_int)   # число → строка</code></pre>
+        
+        <div class="callout warn">
+          <strong>⚠ Осторожно:</strong> <code>int("hello")</code> вызовет ошибку — нельзя преобразовать нечисловую строку в число.
+        </div>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Создать переменные всех 4 основных типов</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Вывести тип каждой через type()</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Преобразовать строку "100" в число и прибавить 5</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Создай переменные разных типов
+
+integer = 42
+pi = 3.14
+text = "Python"
+flag = True
+
+# Выведи тип каждой
+print(type(integer))
+
+
+# Преобразуй строку в число и поработай с ним
+num_str = "100"
+
+
+`
+  },
+  {
+    id: '04_operators',
+    title: 'Операторы',
+    difficulty: 'Beginner',
+    time: '10 min',
+    objectives: ['Арифметические операции', 'Операторы сравнения'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 04 · Beginner</div>
+        <h2 class="lesson-h">Операторы</h2>
+        <div class="lesson-meta"><span>⏱ 10 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <h3>Арифметические</h3>
+        <pre><code>a, b = 10, 3
+
+print(a + b)   # 13  сложение
+print(a - b)   # 7   вычитание
+print(a * b)   # 30  умножение
+print(a / b)   # 3.33 деление
+print(a // b)  # 3   целочисленное
+print(a % b)   # 1   остаток
+print(a ** b)  # 1000 степень</code></pre>
+        
+        <h3>Сравнение</h3>
+        <pre><code>x = 5
+print(x == 5)   # True  равно
+print(x != 5)   # False не равно
+print(x > 3)    # True  больше
+print(x &lt;= 5)   # True  меньше или равно</code></pre>
+        
+        <h3>Логические</h3>
+        <pre><code>age = 25
+has_id = True
+
+print(age >= 18 and has_id)  # True
+print(age &lt; 18 or has_id)    # True
+print(not has_id)            # False</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Вычислить площадь круга (π·r²) при r=5</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Найти остаток от деления 17 на 5</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Проверить, что число одновременно > 0 и чётное</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Арифметика
+a = 10
+b = 3
+
+print("Сумма:", a + b)
+print("Степень:", a ** b)
+
+# Площадь круга
+r = 5
+pi = 3.14159
+
+
+# Проверки
+number = 12
+
+
+`
+  },
+  {
+    id: '05_conditions',
+    title: 'Условия if/else',
+    difficulty: 'Beginner',
+    time: '12 min',
+    objectives: ['if / elif / else', 'Вложенные условия'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 05 · Beginner</div>
+        <h2 class="lesson-h">Условия if / else</h2>
+        <div class="lesson-meta"><span>⏱ 12 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Условия позволяют выполнять разный код в зависимости от ситуации.</p>
+        
+        <h3>Базовый синтаксис</h3>
+        <pre><code>age = 18
+
+if age >= 18:
+    print("Совершеннолетний")
+else:
+    print("Несовершеннолетний")</code></pre>
+        
+        <div class="callout">
+          <strong>💡 Отступы важны!</strong> Python использует отступы (обычно 4 пробела) для обозначения блоков кода.
+        </div>
+        
+        <h3>elif — несколько проверок</h3>
+        <pre><code>score = 85
+
+if score >= 90:
+    grade = "A"
+elif score >= 80:
+    grade = "B"
+elif score >= 70:
+    grade = "C"
+else:
+    grade = "F"
+
+print(f"Оценка: {grade}")</code></pre>
+        
+        <h3>Вложенные условия</h3>
+        <pre><code>age = 25
+has_license = True
+
+if age >= 18:
+    if has_license:
+        print("Можешь водить")
+    else:
+        print("Нужны права")
+else:
+    print("Рано ещё")</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Определить, чётное ли число</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Написать систему оценок (A/B/C/D/F)</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Проверить, високосный ли год</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Проверь число на чётность
+number = 42
+
+
+
+# Система оценок
+score = 85
+
+
+
+# Високосный год?
+year = 2024
+
+
+`
+  },
+  {
+    id: '06_loops',
+    title: 'Циклы for и while',
+    difficulty: 'Beginner',
+    time: '15 min',
+    objectives: ['for и range()', 'while с условием'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 06 · Beginner</div>
+        <h2 class="lesson-h">Циклы</h2>
+        <div class="lesson-meta"><span>⏱ 15 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <h3>Цикл for</h3>
+        <p>Перебирает элементы последовательности:</p>
+        <pre><code>for i in range(5):
+    print(i)  # 0, 1, 2, 3, 4
+
+fruits = ["яблоко", "банан", "вишня"]
+for fruit in fruits:
+    print(fruit)</code></pre>
+        
+        <h3>range(start, stop, step)</h3>
+        <pre><code>for i in range(1, 10, 2):
+    print(i)  # 1, 3, 5, 7, 9</code></pre>
+        
+        <h3>Цикл while</h3>
+        <p>Выполняется, пока условие истинно:</p>
+        <pre><code>count = 0
+while count &lt; 5:
+    print(count)
+    count += 1</code></pre>
+        
+        <div class="callout warn">
+          <strong>⚠ Осторожно:</strong> Бесконечный while — если условие никогда не станет ложным, программа зависнет.
+        </div>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Вывести таблицу умножения на 7</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Посчитать сумму чисел от 1 до 100</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Обратный отсчёт от 10 до 1</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Таблица умножения на 7
+
+
+
+# Сумма от 1 до 100
+total = 0
+
+
+print("Сумма:", total)
+
+# Обратный отсчёт
+
+
+`
+  },
+  {
+    id: '07_lists',
+    title: 'Списки',
+    difficulty: 'Intermediate',
+    time: '15 min',
+    objectives: ['Создавать списки', 'Методы append, pop, sort'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 07 · Intermediate</div>
+        <h2 class="lesson-h">Списки</h2>
+        <div class="lesson-meta"><span>⏱ 15 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Список — упорядоченная изменяемая коллекция элементов.</p>
+        
+        <h3>Создание</h3>
+        <pre><code>numbers = [1, 2, 3, 4, 5]
+mixed = [1, "text", True, 3.14]
+empty = []</code></pre>
+        
+        <h3>Доступ по индексу</h3>
+        <pre><code>fruits = ["яблоко", "банан", "вишня"]
+print(fruits[0])    # яблоко
+print(fruits[-1])   # вишня (с конца)
+print(fruits[1:3])  # ["банан", "вишня"]</code></pre>
+        
+        <h3>Основные методы</h3>
+        <pre><code>nums = [1, 2, 3]
+nums.append(4)        # добавить в конец
+nums.insert(0, 0)     # вставить по индексу
+nums.remove(2)        # удалить по значению
+last = nums.pop()     # удалить и вернуть последний
+nums.sort()           # сортировка
+nums.reverse()        # перевернуть
+len(nums)             # длина</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Создать список из 5 элементов</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Добавить и удалить элементы</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Отсортировать и найти min/max</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Создай список
+numbers = [5, 2, 8, 1, 9, 3]
+
+# Добавь элемент
+
+
+# Отсортируй
+
+
+# Найди min и max
+
+
+print(numbers)
+`
+  },
+  {
+    id: '08_dicts',
+    title: 'Словари',
+    difficulty: 'Intermediate',
+    time: '15 min',
+    objectives: ['Создавать словари', 'Итерация по ключам/значениям'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 08 · Intermediate</div>
+        <h2 class="lesson-h">Словари</h2>
+        <div class="lesson-meta"><span>⏱ 15 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Словарь — коллекция пар <strong>ключ: значение</strong>.</p>
+        
+        <h3>Создание</h3>
+        <pre><code>person = {
+    "name": "Алиса",
+    "age": 25,
+    "city": "Москва"
+}</code></pre>
+        
+        <h3>Доступ</h3>
+        <pre><code>print(person["name"])           # Алиса
+print(person.get("job", "N/A")) # N/A (если ключа нет)</code></pre>
+        
+        <h3>Изменение</h3>
+        <pre><code>person["age"] = 26              # изменить
+person["job"] = "developer"     # добавить
+del person["city"]              # удалить</code></pre>
+        
+        <h3>Итерация</h3>
+        <pre><code>for key, value in person.items():
+    print(f"{key}: {value}")</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Создать словарь с информацией о себе</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Добавить и изменить значения</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Вывести все пары ключ-значение</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Создай словарь
+person = {
+    "name": "Твоё имя",
+    "age": 20,
+}
+
+# Добавь ключ "city"
+
+
+# Измени age
+
+
+# Выведи все пары
+for key, value in person.items():
+    print(f"{key}: {value}")
+`
+  },
+  {
+    id: '09_functions',
+    title: 'Функции',
+    difficulty: 'Intermediate',
+    time: '15 min',
+    objectives: ['Определять функции', 'return и параметры'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 09 · Intermediate</div>
+        <h2 class="lesson-h">Функции</h2>
+        <div class="lesson-meta"><span>⏱ 15 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Функция — переиспользуемый блок кода.</p>
+        
+        <h3>Определение</h3>
+        <pre><code>def greet(name):
+    return f"Привет, {name}!"
+
+message = greet("Алиса")
+print(message)  # Привет, Алиса!</code></pre>
+        
+        <h3>Параметры по умолчанию</h3>
+        <pre><code>def power(base, exp=2):
+    return base ** exp
+
+print(power(3))      # 9
+print(power(3, 3))   # 27</code></pre>
+        
+        <h3>Несколько возвращаемых значений</h3>
+        <pre><code>def min_max(numbers):
+    return min(numbers), max(numbers)
+
+lo, hi = min_max([3, 1, 4, 1, 5])
+print(lo, hi)  # 1 5</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Функция для вычисления факториала</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Функция с параметром по умолчанию</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Функция, возвращающая несколько значений</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Функция факториала
+def factorial(n):
+    pass  # замени на реализацию
+
+print(factorial(5))  # должно быть 120
+
+# Функция с параметром по умолчанию
+
+
+# Функция, возвращающая несколько значений
+
+
+`
+  },
+  {
+    id: '10_comprehension',
+    title: 'List Comprehension',
+    difficulty: 'Intermediate',
+    time: '12 min',
+    objectives: ['Компактное создание списков', 'Фильтрация в comprehension'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 10 · Intermediate</div>
+        <h2 class="lesson-h">List Comprehension</h2>
+        <div class="lesson-meta"><span>⏱ 12 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Компактный способ создавать списки.</p>
+        
+        <h3>Синтаксис</h3>
+        <pre><code># Обычный способ
+squares = []
+for x in range(10):
+    squares.append(x**2)
+
+# Comprehension
+squares = [x**2 for x in range(10)]</code></pre>
+        
+        <h3>С условием</h3>
+        <pre><code># Только чётные
+evens = [x for x in range(20) if x % 2 == 0]
+
+# Только положительные
+positive = [x for x in [-2, -1, 0, 1, 2] if x > 0]</code></pre>
+        
+        <h3>Dict и Set comprehension</h3>
+        <pre><code># Словарь квадратов
+sq_dict = {x: x**2 for x in range(5)}
+
+# Множество уникальных длин
+words = ["hi", "hello", "hi", "hey"]
+lengths = {len(w) for w in words}</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Список кубов чисел от 1 до 10</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Отфильтровать слова длиннее 4 букв</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Создать словарь {число: его квадрат}</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Кубы от 1 до 10
+cubes = []
+print(cubes)
+
+# Слова длиннее 4 букв
+words = ["python", "java", "c", "javascript", "go"]
+long_words = []
+print(long_words)
+
+# Словарь квадратов
+sq_dict = {}
+print(sq_dict)
+`
+  },
+  {
+    id: '11_classes',
+    title: 'Классы и ООП',
+    difficulty: 'Advanced',
+    time: '20 min',
+    objectives: ['Создавать классы', 'Методы и атрибуты'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 11 · Advanced</div>
+        <h2 class="lesson-h">Классы и ООП</h2>
+        <div class="lesson-meta"><span>⏱ 20 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Класс — шаблон для создания объектов.</p>
+        
+        <h3>Создание класса</h3>
+        <pre><code>class Dog:
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+    
+    def bark(self):
+        return f"{self.name} says: Woof!"
+
+my_dog = Dog("Rex", 3)
+print(my_dog.bark())</code></pre>
+        
+        <h3>Наследование</h3>
+        <pre><code>class Animal:
+    def __init__(self, name):
+        self.name = name
+    
+    def speak(self):
+        return "..."
+
+class Cat(Animal):
+    def speak(self):
+        return f"{self.name}: Meow!"</code></pre>
+        
+        <div class="callout">
+          <strong>💡 self:</strong> Первый параметр метода — ссылка на сам объект. Через <code>self</code> обращаемся к атрибутам.
+        </div>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Создать класс BankAccount с методами deposit/withdraw</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Добавить метод get_balance()</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Создать несколько объектов и протестировать</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Класс BankAccount
+class BankAccount:
+    def __init__(self, owner, balance=0):
+        self.owner = owner
+        self.balance = balance
+    
+    # Добавь методы deposit, withdraw, get_balance
+    pass
+
+# Тест
+account = BankAccount("Alice", 1000)
+
+`
+  },
+  {
+    id: '12_errors',
+    title: 'Обработка ошибок',
+    difficulty: 'Intermediate',
+    time: '12 min',
+    objectives: ['try/except', 'Типы исключений'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 12 · Intermediate</div>
+        <h2 class="lesson-h">Обработка ошибок</h2>
+        <div class="lesson-meta"><span>⏱ 12 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Исключения — ошибки во время выполнения программы.</p>
+        
+        <h3>try / except</h3>
+        <pre><code>try:
+    result = 10 / 0
+except ZeroDivisionError:
+    print("Деление на ноль!")</code></pre>
+        
+        <h3>Несколько except</h3>
+        <pre><code>try:
+    num = int("abc")
+except ValueError:
+    print("Не число")
+except TypeError:
+    print("Неверный тип")</code></pre>
+        
+        <h3>finally и else</h3>
+        <pre><code>try:
+    result = 10 / 2
+except ZeroDivisionError:
+    print("Ошибка")
+else:
+    print(f"Успех: {result}")
+finally:
+    print("Выполнится всегда")</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Обработать деление на ноль</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Обработать преобразование строки в число</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Создать собственное исключение</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Безопасное деление
+def safe_divide(a, b):
+    pass  # реализуй
+
+print(safe_divide(10, 2))
+print(safe_divide(10, 0))
+
+# Преобразование строки
+
+
+# Собственное исключение
+
+
+`
+  },
+  {
+    id: '13_decorators',
+    title: 'Декораторы',
+    difficulty: 'Advanced',
+    time: '18 min',
+    objectives: ['Понять декораторы', 'Создать свой декоратор'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 13 · Advanced</div>
+        <h2 class="lesson-h">Декораторы</h2>
+        <div class="lesson-meta"><span>⏱ 18 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Декоратор — функция, которая расширяет поведение другой функции.</p>
+        
+        <h3>Базовый декоратор</h3>
+        <pre><code>def my_decorator(func):
+    def wrapper():
+        print("До")
+        func()
+        print("После")
+    return wrapper
+
+@my_decorator
+def say_hello():
+    print("Hello!")
+
+say_hello()</code></pre>
+        
+        <h3>Декоратор с аргументами</h3>
+        <pre><code>def timer(func):
+    def wrapper(*args, **kwargs):
+        import time
+        start = time.time()
+        result = func(*args, **kwargs)
+        print(f"Time: {time.time()-start:.4f}s")
+        return result
+    return wrapper
+
+@timer
+def slow():
+    sum(range(1000000))</code></pre>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Декоратор, выводящий имя функции</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Декоратор, повторяющий вызов N раз</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Декоратор-кэш для fibonacci</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Декоратор, выводящий имя функции
+def log_call(func):
+    pass  # реализуй
+
+@log_call
+def add(a, b):
+    return a + b
+
+print(add(2, 3))
+
+# Декоратор повторения
+
+
+# Декоратор-кэш
+
+
+`
+  },
+  {
+    id: '14_generators',
+    title: 'Генераторы',
+    difficulty: 'Advanced',
+    time: '15 min',
+    objectives: ['yield', 'Ленивые вычисления'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 14 · Advanced</div>
+        <h2 class="lesson-h">Генераторы</h2>
+        <div class="lesson-meta"><span>⏱ 15 min</span><span>🎯 2 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Генератор — функция, которая возвращает элементы по одному через <code>yield</code>.</p>
+        
+        <h3>Базовый генератор</h3>
+        <pre><code>def count_up(n):
+    i = 1
+    while i &lt;= n:
+        yield i
+        i += 1
+
+for num in count_up(5):
+    print(num)</code></pre>
+        
+        <h3>Генераторные выражения</h3>
+        <pre><code># Список (вся память сразу)
+squares_list = [x**2 for x in range(1000)]
+
+# Генератор (лениво)
+squares_gen = (x**2 for x in range(1000))</code></pre>
+        
+        <div class="callout">
+          <strong>💡 Зачем:</strong> Генераторы экономят память, создавая элементы по требованию.
+        </div>
+        
+        <div class="task-list">
+          <div class="task-title">Задания</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Генератор чисел Фибоначчи</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Генератор бесконечной последовательности</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Генераторное выражение для суммы</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Генератор Фибоначчи
+def fibonacci(n):
+    pass  # реализуй
+
+for num in fibonacci(10):
+    print(num, end=" ")
+
+# Бесконечный генератор
+
+
+# Генераторное выражение
+
+
+`
+  },
+  {
+    id: '15_final',
+    title: 'Финальный проект',
+    difficulty: 'Advanced',
+    time: '30 min',
+    objectives: ['Объединить все знания', 'Создать мини-приложение'],
+    theory: `
+      <div class="lesson-header">
+        <div class="lesson-badge">Lesson 15 · Final Project</div>
+        <h2 class="lesson-h">Финальный проект</h2>
+        <div class="lesson-meta"><span>⏱ 30 min</span><span>🎯 3 objectives</span></div>
+      </div>
+      <div class="lesson-body">
+        <p>Поздравляем! Ты дошёл до финала. Пришло время объединить все знания и создать <strong>мини-приложение</strong>.</p>
+        
+        <h3>🎯 Задача: Менеджер задач</h3>
+        <p>Создай класс <code>TaskManager</code>, который умеет:</p>
+        <ul>
+          <li>Добавлять задачи</li>
+          <li>Помечать задачи выполненными</li>
+          <li>Показывать все задачи</li>
+          <li>Фильтровать по статусу</li>
+          <li>Сохранять статистику</li>
+        </ul>
+        
+        <h3>Требования</h3>
+        <ul>
+          <li>Используй классы и ООП</li>
+          <li>Обработай возможные ошибки</li>
+          <li>Добавь декоратор для логирования</li>
+          <li>Используй list comprehension где уместно</li>
+        </ul>
+        
+        <div class="callout">
+          <strong>🚀 Бонус:</strong> Добавь сохранение задач в словарь с ID и возможностью удаления.
+        </div>
+        
+        <div class="task-list">
+          <div class="task-title">Чеклист проекта</div>
+          <div class="task" data-task="1"><div class="task-check"></div><span>Класс Task с полями title, done, id</span></div>
+          <div class="task" data-task="2"><div class="task-check"></div><span>Класс TaskManager с методами add/complete/list</span></div>
+          <div class="task" data-task="3"><div class="task-check"></div><span>Декоратор для логирования операций</span></div>
+          <div class="task" data-task="4"><div class="task-check"></div><span>Тестовые сценарии (создание, выполнение, фильтрация)</span></div>
+        </div>
+      </div>
+    `,
+    code: `# Финальный проект: Менеджер задач
+
+# Декоратор логирования
+def log_operation(func):
+    def wrapper(*args, **kwargs):
+        print(f"[LOG] Вызов {func.__name__}")
+        return func(*args, **kwargs)
+    return wrapper
+
+# Класс Task
+class Task:
+    def __init__(self, title, task_id):
+        self.title = title
+        self.task_id = task_id
+        self.done = False
+    
+    def __repr__(self):
+        status = "✓" if self.done else "○"
+        return f"[{status}] #{self.task_id}: {self.title}"
+
+# Класс TaskManager
+class TaskManager:
+    def __init__(self):
+        self.tasks = []
+        self.next_id = 1
+    
+    @log_operation
+    def add(self, title):
+        task = Task(title, self.next_id)
+        self.tasks.append(task)
+        self.next_id += 1
+        return task
+    
+    # Допиши методы: complete, list_all, filter_by_status, stats
+
+
+# Тестирование
+tm = TaskManager()
+tm.add("Изучить Python")
+tm.add("Сделать проект")
+tm.add("Отдохнуть")
+
+print(tm.tasks)
+
+`
+  }
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let pyodide = null;
+let currentLessonIdx = 0;
+let completedTasks = JSON.parse(localStorage.getItem('pycursor_tasks') || '{}');
+let completedLessons = new Set(JSON.parse(localStorage.getItem('pycursor_lessons') || '[]'));
+
+// ============================================================
+// BOOT
+// ============================================================
+async function boot() {
+  const fill = document.getElementById('bootFill');
+  const log = document.getElementById('bootLog');
+  
+  const steps = [
+    ['Loading environment...', 20],
+    ['Fetching Pyodide runtime...', 50],
+    ['Initializing Python 3.11...', 80],
+    ['Ready.', 100]
+  ];
+  
+  for (const [msg, pct] of steps) {
+    log.textContent = msg;
+    fill.style.width = pct + '%';
+    await new Promise(r => setTimeout(r, 250));
+  }
+  
+  try {
+    pyodide = await loadPyodide({ indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/' });
+    setupPyodideCapture();
+  } catch (e) {
+    log.textContent = 'Failed to load Python: ' + e.message;
+    log.style.color = 'var(--error)';
+    return;
+  }
+  
+  await new Promise(r => setTimeout(r, 300));
+  document.getElementById('boot').classList.add('hidden');
+  setTimeout(() => document.getElementById('boot').remove(), 500);
+  
+  initApp();
+}
+
+function setupPyodideCapture() {
+  pyodide.runPython(`
+import sys
+from io import StringIO
+
+class OutputCapture:
+    def __init__(self):
+        self.outputs = []
+    def write(self, text):
+        self.outputs.append(text)
+    def flush(self):
+        pass
+    def getvalue(self):
+        return ''.join(self.outputs)
+    def clear(self):
+        self.outputs = []
+
+__capture__ = OutputCapture()
+sys.stdout = __capture__
+sys.stderr = __capture__
+  `);
+}
+
+// ============================================================
+// APP INIT
+// ============================================================
+function initApp() {
+  renderSidebar();
+  loadLesson(0);
+  setupEditor();
+  setupResizer();
+  setupPanelTabs();
+  setupAI();
+  setupKeyboard();
+  updateProgress();
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function renderSidebar() {
+  const list = document.getElementById('lessonList');
+  list.innerHTML = LESSONS.map((l, i) => `
+    <div class="lesson-item ${i === currentLessonIdx ? 'active' : ''} ${completedLessons.has(i) ? 'done' : ''}" data-idx="${i}">
+      <div class="lesson-icon">${completedLessons.has(i) ? '✓' : String(i + 1).padStart(2, '0')}</div>
+      <div class="lesson-name">${l.title}</div>
+    </div>
+  `).join('');
+  
+  list.querySelectorAll('.lesson-item').forEach(el => {
+    el.addEventListener('click', () => loadLesson(parseInt(el.dataset.idx)));
+  });
+}
+
+// ============================================================
+// LESSON
+// ============================================================
+function loadLesson(idx) {
+  currentLessonIdx = idx;
+  const lesson = LESSONS[idx];
+  
+  // Update title path
+  document.getElementById('titlePath').textContent = `pycursor / lessons / ${lesson.id}.py`;
+  document.getElementById('statusLesson').textContent = `Lesson ${idx + 1}/${LESSONS.length}`;
+  
+  // Update tabs
+  document.getElementById('tabs').innerHTML = `
+    <div class="tab active">
+      <div class="tab-icon" style="color: var(--accent);">🐍</div>
+      <span>${lesson.id}.py</span>
+    </div>
+    <div class="tab">
+      <div class="tab-icon" style="color: var(--text-2);">📖</div>
+      <span>README.md</span>
+    </div>
+  `;
+  
+  // Update lesson panel
+  document.getElementById('lessonContent').innerHTML = lesson.theory;
+  
+  // Setup tasks
+  setupTasks(idx);
+  
+  // Update editor
+  const editor = document.getElementById('editor');
+  editor.value = lesson.code;
+  updateHighlight();
+  updateGutter();
+  
+  // Clear terminal
+  clearTerminal();
+  termLog('Python 3.11 (Pyodide) — ready', 'dim');
+  termLog(`Loaded: ${lesson.title}`, 'info');
+  
+  // Update sidebar
+  renderSidebar();
+  
+  // Scroll lesson panel to top
+  document.getElementById('lessonPanel').scrollTop = 0;
+}
+
+function setupTasks(lessonIdx) {
+  const lessonKey = `lesson_${lessonIdx}`;
+  if (!completedTasks[lessonKey]) completedTasks[lessonKey] = [];
+  
+  document.querySelectorAll('.task').forEach(el => {
+    const taskId = el.dataset.task;
+    if (completedTasks[lessonKey].includes(taskId)) {
+      el.classList.add('done');
+    }
+    el.addEventListener('click', () => {
+      el.classList.toggle('done');
+      const key = `lesson_${lessonIdx}`;
+      if (!completedTasks[key]) completedTasks[key] = [];
+      if (el.classList.contains('done')) {
+        if (!completedTasks[key].includes(taskId)) completedTasks[key].push(taskId);
+      } else {
+        completedTasks[key] = completedTasks[key].filter(t => t !== taskId);
+      }
+      localStorage.setItem('pycursor_tasks', JSON.stringify(completedTasks));
+      checkLessonCompletion(lessonIdx);
+    });
+  });
+}
+
+function checkLessonCompletion(lessonIdx) {
+  const key = `lesson_${lessonIdx}`;
+  const total = document.querySelectorAll('.task').length;
+  const done = (completedTasks[key] || []).length;
+  if (done === total && total > 0) {
+    completedLessons.add(lessonIdx);
+    localStorage.setItem('pycursor_lessons', JSON.stringify([...completedLessons]));
+    renderSidebar();
+    updateProgress();
+    toast('🎉 Урок завершён!', 'success');
+  }
+}
+
+function updateProgress() {
+  document.getElementById('progressLabel').textContent = `${completedLessons.size}/${LESSONS.length}`;
+}
+
+// ============================================================
+// EDITOR
+// ============================================================
+function setupEditor() {
+  const editor = document.getElementById('editor');
+  editor.addEventListener('input', () => {
+    updateHighlight();
+    updateGutter();
+  });
+  editor.addEventListener('scroll', () => {
+    document.getElementById('highlight').scrollTop = editor.scrollTop;
+    document.getElementById('gutter').scrollTop = editor.scrollTop;
+  });
+  editor.addEventListener('keydown', handleEditorKeys);
+  editor.addEventListener('click', updateCursorStatus);
+  editor.addEventListener('keyup', updateCursorStatus);
+  
+  updateHighlight();
+  updateGutter();
+}
+
+function handleEditorKeys(e) {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = this.selectionStart;
+    const end = this.selectionEnd;
+    this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+    this.selectionStart = this.selectionEnd = start + 4;
+    updateHighlight();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    runCode();
+  }
+}
+
+function updateCursorStatus() {
+  const editor = document.getElementById('editor');
+  const pos = editor.selectionStart;
+  const text = editor.value.substring(0, pos);
+  const lines = text.split('\n');
+  const ln = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  document.getElementById('statusCursor').textContent = `Ln ${ln}, Col ${col}`;
+  
+  // Highlight active line in gutter
+  document.querySelectorAll('.gutter-line').forEach((el, i) => {
+    el.classList.toggle('active', i === ln - 1);
+  });
+}
+
+function updateGutter() {
+  const editor = document.getElementById('editor');
+  const lines = editor.value.split('\n').length;
+  const gutter = document.getElementById('gutter');
+  gutter.innerHTML = Array.from({length: lines}, (_, i) => 
+    `<div class="gutter-line">${i + 1}</div>`
+  ).join('');
+}
+
+function updateHighlight() {
+  const code = document.getElementById('editor').value;
+  document.getElementById('highlight').innerHTML = highlightPython(code);
+}
+
+function highlightPython(code) {
+  // Escape HTML
+  let html = code
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  
+  // Order matters: comments and strings first to avoid re-highlighting inside them
+  
+  // Multi-line strings (triple quotes)
+  html = html.replace(/("""[\s\S]*?"""|'''[\s\S]*?''')/g, '<span class="tok-str">$1</span>');
+  
+  // Comments
+  html = html.replace(/(#[^\n]*)/g, '<span class="tok-com">$1</span>');
+  
+  // Strings (single and double quotes, not inside already highlighted)
+  html = html.replace(/(?<!<span class="tok-str">)((?:"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'))/g, '<span class="tok-str">$1</span>');
+  
+  // Decorators
+  html = html.replace(/(@\w+)/g, '<span class="tok-dec">$1</span>');
+  
+  // Numbers
+  html = html.replace(/\b(\d+\.?\d*)\b/g, '<span class="tok-num">$1</span>');
+  
+  // Keywords
+  const keywords = ['def', 'class', 'if', 'elif', 'else', 'for', 'while', 'return', 'import', 'from', 'as', 'try', 'except', 'finally', 'raise', 'with', 'yield', 'lambda', 'pass', 'break', 'continue', 'in', 'not', 'and', 'or', 'is', 'True', 'False', 'None', 'global', 'nonlocal', 'assert', 'del'];
+  html = html.replace(new RegExp(`\\b(${keywords.join('|')})\\b`, 'g'), '<span class="tok-kw">$1</span>');
+  
+  // Built-in functions
+  const builtins = ['print', 'len', 'range', 'type', 'int', 'str', 'float', 'list', 'dict', 'set', 'tuple', 'input', 'open', 'map', 'filter', 'sum', 'min', 'max', 'sorted', 'reversed', 'enumerate', 'zip', 'isinstance', 'hasattr', 'getattr', 'setattr', 'super', 'property', 'staticmethod', 'classmethod', 'abs', 'round', 'pow', 'format'];
+  html = html.replace(new RegExp(`\\b(${builtins.join('|')})(?=\\()`, 'g'), '<span class="tok-bi">$1</span>');
+  
+  // Function definitions
+  html = html.replace(/\b(def)\s+(\w+)/g, '$1 <span class="tok-fn">$2</span>');
+  html = html.replace(/\b(class)\s+(\w+)/g, '$1 <span class="tok-cls">$2</span>');
+  
+  return html;
+}
+
+// ============================================================
+// RUN CODE
+// ============================================================
+async function runCode() {
+  if (!pyodide) {
+    toast('Python ещё не загрузился', 'error');
+    return;
+  }
+  
+  const code = document.getElementById('editor').value;
+  const dot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  
+  dot.classList.add('loading');
+  statusText.textContent = 'Running...';
+  
+  clearTerminal();
+  termLog(`$ python ${LESSONS[currentLessonIdx].id}.py`, 'dim');
+  termLog('', 'dim');
+  
+  try {
+    pyodide.runPython('__capture__.clear()');
+    await pyodide.runPythonAsync(code);
+    const output = pyodide.runPython('__capture__.getvalue()');
+    
+    if (output) {
+      output.split('\n').forEach(line => {
+        if (line) termLog(line, 'out');
+      });
+    }
+    termLog('', 'dim');
+    termLog('✓ Process exited with code 0', 'ok');
+    toast('Код выполнен успешно', 'success');
+  } catch (err) {
+    const msg = err.message || String(err);
+    termLog('✗ ' + msg.split('\n').slice(-5).join('\n'), 'err');
+    termLog('', 'dim');
+    termLog('✗ Process exited with code 1', 'err');
+    toast('Ошибка выполнения', 'error');
+  } finally {
+    dot.classList.remove('loading');
+    statusText.textContent = 'Ready';
+  }
+}
+
+function termLog(text, cls = 'out') {
+  const body = document.getElementById('termBody');
+  // Remove prompt
+  const prompt = body.querySelector('.term-prompt');
+  if (prompt) prompt.remove();
+  
+  const line = document.createElement('div');
+  line.className = 'term-line ' + cls;
+  line.textContent = text;
+  body.appendChild(line);
+  
+  // Add prompt back
+  const newPrompt = document.createElement('div');
+  newPrompt.className = 'term-prompt';
+  newPrompt.innerHTML = '<span class="chev">❯</span> <span>ready</span>';
+  body.appendChild(newPrompt);
+  
+  body.scrollTop = body.scrollHeight;
+}
+
+function clearTerminal() {
+  const body = document.getElementById('termBody');
+  body.innerHTML = '';
+}
+
+// ============================================================
+// RESIZER
+// ============================================================
+function setupResizer() {
+  const resizer = document.getElementById('resizer');
+  const rightPanel = document.getElementById('rightPanel');
+  let startX, startWidth;
+  
+  resizer.addEventListener('mousedown', e => {
+    startX = e.clientX;
+    startWidth = rightPanel.offsetWidth;
+    resizer.classList.add('active');
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  
+  function onMove(e) {
+    const diff = startX - e.clientX;
+    const newWidth = Math.max(280, Math.min(700, startWidth + diff));
+    rightPanel.style.width = newWidth + 'px';
+  }
+  
+  function onUp() {
+    resizer.classList.remove('active');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  }
+}
+
+// ============================================================
+// PANEL TABS
+// ============================================================
+function setupPanelTabs() {
+  document.querySelectorAll('.panel-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const panel = tab.dataset.panel;
+      document.getElementById('lessonPanel').style.display = panel === 'lesson' ? 'block' : 'none';
+      document.getElementById('aiPanel').classList.toggle('active', panel === 'ai');
+    });
+  });
+}
+
+function toggleAI() {
+  const aiTab = document.querySelector('.panel-tab[data-panel="ai"]');
+  aiTab.click();
+}
+
+// ============================================================
+// AI CHAT (simulated)
+// ============================================================
+const AI_RESPONSES = {
+  'привет': 'Привет! 👋 Чем могу помочь с Python?',
+  'hello': 'Hello! How can I help you with Python today?',
+  'переменн': `Переменные в Python создаются простым присваиванием:
+<pre><code>name = "Alice"
+age = 25
+pi = 3.14</code></pre>
+Тип определяется автоматически. Используй <code>f"текст {var}"</code> для интерполяции.`,
+  'списк': `Списки — изменяемые упорядоченные коллекции:
+<pre><code>nums = [1, 2, 3]
+nums.append(4)      # добавить
+nums[0]             # доступ
+nums[1:3]           # срез
+len(nums)           # длина</code></pre>`,
+  'словар': `Словари хранят пары ключ-значение:
+<pre><code>person = {"name": "Alice", "age": 25}
+person["name"]              # доступ
+person.get("job", "N/A")    # с дефолтом
+for k, v in person.items():
+    print(k, v)</code></pre>`,
+  'функци': `Функции определяются через <code>def</code>:
+<pre><code>def greet(name, greeting="Hi"):
+    return f"{greeting}, {name}!"
+
+print(greet("Alice"))</code></pre>`,
+  'класс': `Классы — шаблоны объектов:
+<pre><code>class Dog:
+    def __init__(self, name):
+        self.name = name
+    
+    def bark(self):
+        return f"{self.name}: Woof!"</code></pre>`,
+  'цикл': `Циклы <code>for</code> и <code>while</code>:
+<pre><code>for i in range(5):
+    print(i)
+
+x = 0
+while x &lt; 5:
+    print(x)
+    x += 1</code></pre>`,
+  'исключени|ошибк|try|except': `Обработка ошибок:
+<pre><code>try:
+    result = 10 / 0
+except ZeroDivisionError as e:
+    print(f"Ошибка: {e}")
+finally:
+    print("Всегда выполнится")</code></pre>`,
+  'декоратор': `Декораторы расширяют функции:
+<pre><code>def timer(func):
+    def wrapper(*args, **kwargs):
+        import time
+        start = time.time()
+        result = func(*args, **kwargs)
+        print(f"Time: {time.time()-start:.3f}s")
+        return result
+    return wrapper
+
+@timer
+def slow():
+    sum(range(10**7))</code></pre>`,
+  'генератор|yield': `Генераторы — ленивые итераторы:
+<pre><code>def count(n):
+    i = 0
+    while i &lt; n:
+        yield i
+        i += 1
+
+for x in count(5):
+    print(x)</code></pre>
+Экономят память — элементы создаются по одному.`,
+  'помощь|help|что ты умеешь': `Я могу:
+• Объяснять концепции Python
+• Помогать с кодом
+• Отвечать на вопросы по курсу
+
+Попробуй спросить: "объясни списки", "как работают декораторы", "что такое генераторы".`,
+  'default': `Хороший вопрос! Вот что я могу подсказать:
+
+• Попробуй запустить код кнопкой <strong>▶ Run</strong>
+• Используй <span class="kbd">⌘K</span> для команд
+• Загляни во вкладку <strong>Lesson</strong> справа
+
+Задай более конкретный вопрос — например, "объясни списки" или "как работают декораторы".`
+};
+
+function setupAI() {
+  const input = document.getElementById('aiInput');
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendAIMessage();
+    }
+  });
+}
+
+function sendAIMessage() {
+  const input = document.getElementById('aiInput');
+  const text = input.value.trim();
+  if (!text) return;
+  
+  addAIMessage(text, 'user');
+  input.value = '';
+  
+  // Simulate thinking
+  setTimeout(() => {
+    const response = getAIResponse(text);
+    addAIMessage(response, 'ai');
+  }, 500 + Math.random() * 500);
+}
+
+function getAIResponse(query) {
+  const q = query.toLowerCase();
+  for (const [pattern, response] of Object.entries(AI_RESPONSES)) {
+    if (pattern === 'default') continue;
+    const patterns = pattern.split('|');
+    if (patterns.some(p => q.includes(p))) {
+      return response;
+    }
+  }
+  return AI_RESPONSES.default;
+}
+
+function addAIMessage(text, role) {
+  const container = document.getElementById('aiMessages');
+  const msg = document.createElement('div');
+  msg.className = 'ai-msg ' + role;
+  msg.innerHTML = role === 'ai' ? text.replace(/\n/g, '<br>') : text.replace(/</g, '&lt;');
+  container.appendChild(msg);
+  container.scrollTop = container.scrollHeight;
+}
+
+// ============================================================
+// COMMAND PALETTE
+// ============================================================
+const COMMANDS = [
+  { label: 'Run Code', hint: '⌘ Enter', icon: '▶', action: () => runCode() },
+  { label: 'Clear Terminal', hint: '', icon: '🗑', action: () => clearTerminal() },
+  { label: 'Next Lesson', hint: '', icon: '→', action: () => currentLessonIdx < LESSONS.length - 1 && loadLesson(currentLessonIdx + 1) },
+  { label: 'Previous Lesson', hint: '', icon: '←', action: () => currentLessonIdx > 0 && loadLesson(currentLessonIdx - 1) },
+  { label: 'Reset Current Lesson', hint: '', icon: '↺', action: () => loadLesson(currentLessonIdx) },
+  { label: 'Toggle AI Chat', hint: '⌘ I', icon: '✨', action: () => toggleAI() },
+  { label: 'Reset Progress', hint: '', icon: '⚠', action: () => {
+    if (confirm('Сбросить весь прогресс?')) {
+      localStorage.clear();
+      completedTasks = {};
+      completedLessons = new Set();
+      renderSidebar();
+      updateProgress();
+      toast('Прогресс сброшен', 'warn');
+    }
+  }},
+  ...LESSONS.map((l, i) => ({
+    label: `Go to: ${l.title}`,
+    hint: `Lesson ${i + 1}`,
+    icon: '📄',
+    action: () => loadLesson(i)
+  }))
+];
+
+let cmdSelectedIdx = 0;
+let filteredCommands = COMMANDS;
+
+function openCmd() {
+  document.getElementById('cmdOverlay').classList.add('active');
+  const input = document.getElementById('cmdInput');
+  input.value = '';
+  input.focus();
+  cmdSelectedIdx = 0;
+  filteredCommands = COMMANDS;
+  renderCmdList();
+}
+
+function closeCmd() {
+  document.getElementById('cmdOverlay').classList.remove('active');
+}
+
+function renderCmdList() {
+  const list = document.getElementById('cmdList');
+  list.innerHTML = filteredCommands.slice(0, 10).map((cmd, i) => `
+    <div class="cmd-item ${i === cmdSelectedIdx ? 'selected' : ''}" data-idx="${i}">
+      <div class="cmd-item-icon">${cmd.icon}</div>
+      <div class="cmd-item-label">${cmd.label}</div>
+      ${cmd.hint ? `<div class="cmd-item-hint">${cmd.hint}</div>` : ''}
+    </div>
+  `).join('');
+  
+  list.querySelectorAll('.cmd-item').forEach(el => {
+    el.addEventListener('click', () => {
+      cmdSelectedIdx = parseInt(el.dataset.idx);
+      executeCmd();
+    });
+    el.addEventListener('mouseenter', () => {
+      cmdSelectedIdx = parseInt(el.dataset.idx);
+      renderCmdList();
+    });
+  });
+}
+
+function executeCmd() {
+  const cmd = filteredCommands[cmdSelectedIdx];
+  if (cmd) {
+    closeCmd();
+    cmd.action();
+  }
+}
+
+document.getElementById('cmdInput').addEventListener('input', e => {
+  const q = e.target.value.toLowerCase();
+  filteredCommands = COMMANDS.filter(c => c.label.toLowerCase().includes(q));
+  cmdSelectedIdx = 0;
+  renderCmdList();
+});
+
+document.getElementById('cmdInput').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    cmdSelectedIdx = Math.min(cmdSelectedIdx + 1, filteredCommands.length - 1);
+    renderCmdList();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    cmdSelectedIdx = Math.max(cmdSelectedIdx - 1, 0);
+    renderCmdList();
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    executeCmd();
+  } else if (e.key === 'Escape') {
+    closeCmd();
+  }
+});
+
+document.getElementById('cmdOverlay').addEventListener('click', e => {
+  if (e.target.id === 'cmdOverlay') closeCmd();
+});
+
+// ============================================================
+// KEYBOARD
+// ============================================================
+function setupKeyboard() {
+  document.addEventListener('keydown', e => {
+    // ⌘K / Ctrl+K — command palette
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      e.preventDefault();
+      openCmd();
+    }
+    // ⌘I / Ctrl+I — toggle AI
+    if ((e.metaKey || e.ctrlKey) && e.key === 'i') {
+      e.preventDefault();
+      toggleAI();
+    }
+    // Escape — close palette
+    if (e.key === 'Escape') {
+      closeCmd();
+    }
+  });
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function toast(msg, type = 'info') {
+  const wrap = document.getElementById('toastWrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(() => {
+    t.style.opacity = '0';
+    t.style.transform = 'translateX(20px)';
+    t.style.transition = 'all 0.3s';
+    setTimeout(() => t.remove(), 300);
+  }, 2500);
+}
+
+// ============================================================
+// START
+// ============================================================
+boot();
+</script>
+</body>
+</html>
